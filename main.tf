@@ -2,55 +2,55 @@ provider "aws" {
   region = "ap-south-1"
 }
 
-resource "aws_vpc" "devopsshack_vpc" {
+resource "aws_vpc" "default_vpc" {
   cidr_block = "10.0.0.0/16"
 
   tags = {
-    Name = "devopsshack-vpc"
+    Name = "default-vpc"
   }
 }
 
-resource "aws_subnet" "devopsshack_subnet" {
+resource "aws_subnet" "default_subnet" {
   count = 2
-  vpc_id                  = aws_vpc.devopsshack_vpc.id
-  cidr_block              = cidrsubnet(aws_vpc.devopsshack_vpc.cidr_block, 8, count.index)
+  vpc_id                  = aws_vpc.default_vpc.id
+  cidr_block              = cidrsubnet(aws_vpc.default_vpc.cidr_block, 8, count.index)
   availability_zone       = element(["ap-south-1a", "ap-south-1b"], count.index)
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "devopsshack-subnet-${count.index}"
+    Name = "default-subnet-${count.index}"
   }
 }
 
-resource "aws_internet_gateway" "devopsshack_igw" {
-  vpc_id = aws_vpc.devopsshack_vpc.id
+resource "aws_internet_gateway" "default_igw" {
+  vpc_id = aws_vpc.default_vpc.id
 
   tags = {
-    Name = "devopsshack-igw"
+    Name = "default-igw"
   }
 }
 
-resource "aws_route_table" "devopsshack_route_table" {
-  vpc_id = aws_vpc.devopsshack_vpc.id
+resource "aws_route_table" "default_route_table" {
+  vpc_id = aws_vpc.default_vpc.id
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.devopsshack_igw.id
+    gateway_id = aws_internet_gateway.default_igw.id
   }
 
   tags = {
-    Name = "devopsshack-route-table"
+    Name = "default-route-table"
   }
 }
 
 resource "aws_route_table_association" "a" {
   count          = 2
-  subnet_id      = aws_subnet.devopsshack_subnet[count.index].id
-  route_table_id = aws_route_table.devopsshack_route_table.id
+  subnet_id      = aws_subnet.default_subnet[count.index].id
+  route_table_id = aws_route_table.default_route_table.id
 }
 
-resource "aws_security_group" "devopsshack_cluster_sg" {
-  vpc_id = aws_vpc.devopsshack_vpc.id
+resource "aws_security_group" "default_cluster_sg" {
+  vpc_id = aws_vpc.default_vpc.id
 
   egress {
     from_port   = 0
@@ -60,12 +60,12 @@ resource "aws_security_group" "devopsshack_cluster_sg" {
   }
 
   tags = {
-    Name = "devopsshack-cluster-sg"
+    Name = "default-cluster-sg"
   }
 }
 
-resource "aws_security_group" "devopsshack_node_sg" {
-  vpc_id = aws_vpc.devopsshack_vpc.id
+resource "aws_security_group" "default_node_sg" {
+  vpc_id = aws_vpc.default_vpc.id
 
   ingress {
     from_port   = 0
@@ -82,25 +82,25 @@ resource "aws_security_group" "devopsshack_node_sg" {
   }
 
   tags = {
-    Name = "devopsshack-node-sg"
+    Name = "default-node-sg"
   }
 }
 
-resource "aws_eks_cluster" "devopsshack" {
-  name     = "devopsshack-cluster"
-  role_arn = aws_iam_role.devopsshack_cluster_role.arn
+resource "aws_eks_cluster" "default" {
+  name     = "default-cluster"
+  role_arn = aws_iam_role.default_cluster_role.arn
 
   vpc_config {
-    subnet_ids         = aws_subnet.devopsshack_subnet[*].id
-    security_group_ids = [aws_security_group.devopsshack_cluster_sg.id]
+    subnet_ids         = aws_subnet.default_subnet[*].id
+    security_group_ids = [aws_security_group.default_cluster_sg.id]
   }
 }
 
-resource "aws_eks_node_group" "devopsshacks" {
-  cluster_name    = aws_eks_cluster.devopsshack.name
-  node_group_name = "devopsshack-node-group"
-  node_role_arn   = aws_iam_role.devopsshack_node_group_role.arn
-  subnet_ids      = aws_subnet.devopsshack_subnet[*].id
+resource "aws_eks_node_group" "default" {
+  cluster_name    = aws_eks_cluster.default.name
+  node_group_name = "default-node-group"
+  node_role_arn   = aws_iam_role.default_node_group_role.arn
+  subnet_ids      = aws_subnet.default_subnet[*].id
 
   scaling_config {
     desired_size = 3
@@ -112,12 +112,12 @@ resource "aws_eks_node_group" "devopsshacks" {
 
   remote_access {
     ec2_ssh_key = var.ssh_key_name
-    source_security_group_ids = [aws_security_group.devopsshack_node_sg.id]
+    source_security_group_ids = [aws_security_group.default_node_sg.id]
   }
 }
 
-resource "aws_iam_role" "devopsshack_cluster_role" {
-  name = "devopsshacks-cluster-role"
+resource "aws_iam_role" "default_cluster_role" {
+  name = "default-cluster-role"
 
   assume_role_policy = <<EOF
 {
@@ -135,13 +135,13 @@ resource "aws_iam_role" "devopsshack_cluster_role" {
 EOF
 }
 
-resource "aws_iam_role_policy_attachment" "devopsshack_cluster_role_policy" {
-  role       = aws_iam_role.devopsshack_cluster_role.name
+resource "aws_iam_role_policy_attachment" "default_cluster_role_policy" {
+  role       = aws_iam_role.default_cluster_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
 }
 
-resource "aws_iam_role" "devopsshack_node_group_role" {
-  name = "devopsshack-node-group-role"
+resource "aws_iam_role" "default_node_group_role" {
+  name = "default-node-group-role"
 
   assume_role_policy = <<EOF
 {
@@ -159,17 +159,17 @@ resource "aws_iam_role" "devopsshack_node_group_role" {
 EOF
 }
 
-resource "aws_iam_role_policy_attachment" "devopsshack_node_group_role_policy" {
-  role       = aws_iam_role.devopsshacks_node_group_role.name
+resource "aws_iam_role_policy_attachment" "default_node_group_role_policy" {
+  role       = aws_iam_role.default_node_group_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
 }
 
-resource "aws_iam_role_policy_attachment" "devopsshack_node_group_cni_policy" {
+resource "aws_iam_role_policy_attachment" "default_node_group_cni_policy" {
   role       = aws_iam_role.Primary_node_group_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
 }
 
-resource "aws_iam_role_policy_attachment" "devopsshack_node_group_registry_policy" {
-  role       = aws_iam_role.devopsshacks_node_group_role.name
+resource "aws_iam_role_policy_attachment" "default_node_group_registry_policy" {
+  role       = aws_iam_role.default_node_group_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
